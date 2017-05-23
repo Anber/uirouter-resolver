@@ -1,0 +1,63 @@
+{
+  "name": "uirouter-resolver",
+  "version": "0.0.1-0",
+  "description": "Helper for UI-Router's resolve",
+  "main": "lib/index.js",
+  "jsnext:main": "lib-esm/index.js",
+  "scripts": {
+    "build": "tsc && tsc -m es6 --outDir lib-esm && npm run fixdts",
+    "fixdts": "dts-downlevel 'lib/**/*.d.ts' 'lib-esm/**/*.d.ts'",
+    "test": "jest",
+    "test-watch": "jest --watch"
+  },
+  "jest": {
+    "mapCoverage": true,
+    "collectCoverage": true,
+    "collectCoverageFrom": [
+      "src/**/*.{ts}",
+      "!**/*.test.{ts}",
+      "!**/node_modules/**",
+      "!**/tests/**"
+    ],
+    "coverageDirectory": "<rootDir>/coverage",
+    "coverageReporters": [
+      "json",
+      "lcov",
+      "text",
+      "html"
+    ],
+    "transform": {
+      ".(ts)": "<rootDir>/node_modules/ts-jest/preprocessor.js"
+    },
+    "testRegex": "/tests/.*\\.ts$",
+    "moduleFileExtensions": [
+      "ts",
+      "js"
+    ]
+  },
+  "author": "Anton Evzhakov",
+  "license": "MIT",
+  "homepage": "https://github.com/Anber/uirouter-resolver",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Anber/uirouter-resolver.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Anber/uirouter-resolver/issues"
+  },
+  "devDependencies": {
+    "@types/jest": "^19.2.3",
+    "dts-downlevel": "^0.3.0",
+    "jest": "^20.0.3",
+    "regenerator-runtime": "^0.10.3",
+    "ts-jest": "^20.0.4",
+    "typescript": "^2.3.3"
+  },
+  "dependencies": {
+  },
+  "peerDependencies": {
+    "@uirouter/angularjs": "^1.0.0",
+    "@uirouter/core": "^5.0.0",
+    "angular": "^1.2.0"
+  }
+}
