@@ -1,36 +1,35 @@
 import angular from 'angular';
-import uiRouter from '@uirouter/angularjs';
+import uiRouter, { values, isArray, forEach } from '@uirouter/angularjs';
 var MODULE_NAME = 'uiRouterResolver';
 var module = angular.module(MODULE_NAME, [uiRouter]);
 module.provider('$resolveCache', function $resolveCache() {
     var _this = this;
-    var cache = new Map();
-    this.flush = function (token) {
-        if (!cache.has(token))
-            return;
-        cache.get(token)();
-        cache.delete(token);
+    var cache = new Set();
+    this.flush = function (resolver) {
+        if (!resolver.token) {
+            cache.forEach(function (cacheEl) {
+                if (cacheEl.token === resolver) {
+                    cache.delete(cacheEl);
+                }
+            });
+        }
+        else {
+            if (!cache.has(resolver))
+                return;
+            cache.delete(resolver);
+        }
     };
-    this.isCached = function (token) { return cache.has(token); };
-    function markAsCached($transitions, token) {
-        var _this = this;
-        if (cache.has(token))
+    this.isCached = function (resolver) { return cache.has(resolver); };
+    function markAsCached(resolver) {
+        if (cache.has(resolver))
             return;
-        var onBeforeHook = $transitions.onBefore({
-            to: function (state) { return !state.path
-                .reduce(function (acc, el) { return acc.concat(el.resolvables); }, [])
-                .map(function (r) { return r.token; })
-                .includes(token); },
-        }, function () {
-            _this.flush(token);
-        });
-        cache.set(token, onBeforeHook);
+        cache.add(resolver);
     }
-    this.$get = ['$transitions', function ($transitions) { return ({
-            markAsCached: markAsCached.bind(_this, $transitions),
-            flush: _this.flush,
-            isCached: _this.isCached,
-        }); }];
+    this.$get = function () { return ({
+        markAsCached: markAsCached,
+        flush: _this.flush,
+        isCached: _this.isCached,
+    }); };
 });
 module.config(['$provide', function ($provide) {
         $provide.decorator('$state', ['$delegate', '$resolveCache', function ($delegate, $resolveCache) {
@@ -48,7 +47,28 @@ module.config(['$provide', function ($provide) {
     }]);
 module.config(['$transitionsProvider', '$resolveCacheProvider', function ($transitionsProvider, $resolveCacheProvider) {
         'ngInject';
+        function flushResolve(resolve) {
+            if (isArray(resolve)) {
+                resolve.forEach($resolveCacheProvider.flush);
+            }
+            else {
+                forEach(resolve, function (v, token) { return $resolveCacheProvider.flush(token); });
+            }
+        }
         $transitionsProvider.onBefore({}, function (trans) {
+            var entering = trans.entering();
+            trans.exiting().filter(function (state) { return entering.indexOf(state) === -1; }).forEach(function (state) {
+                if (state.resolve) {
+                    flushResolve(state.resolve);
+                }
+                if (state.views) {
+                    values(state.views).forEach(function (view) {
+                        if (view && view.resolve) {
+                            flushResolve(view.resolve);
+                        }
+                    });
+                }
+            });
             var tokens = trans.options().custom.flush;
             if (tokens) {
                 tokens.forEach(function (token) { return $resolveCacheProvider.flush(token); });

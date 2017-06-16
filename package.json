@@ -1,8 +1,9 @@
 {
   "name": "uirouter-resolver",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Helper for UI-Router's resolve",
   "main": "lib/index.js",
+  "types": "lib/index.d.ts",
   "jsnext:main": "lib-esm/index.js",
   "scripts": {
     "build": "tsc && tsc -m es6 --outDir lib-esm && npm run fixdts",

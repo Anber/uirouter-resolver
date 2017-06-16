@@ -1,45 +1,38 @@
 import angular from 'angular';
-import uiRouter from '@uirouter/angularjs';
+import uiRouter, { values, isArray, forEach } from '@uirouter/angularjs';
 
 const MODULE_NAME = 'uiRouterResolver';
 
 const module = angular.module(MODULE_NAME, [uiRouter]);
 
 module.provider('$resolveCache', function $resolveCache() {
-    const cache = new Map();
+    const cache = new Set();
 
-    this.flush = (token) => {
-        if (!cache.has(token)) return;
-
-        cache.get(token)();
-        cache.delete(token);
+    this.flush = (resolver) => {
+        if (!resolver.token) {
+            cache.forEach((cacheEl) => {
+                if (cacheEl.token === resolver) {
+                    cache.delete(cacheEl);
+                }
+            });
+        } else {
+            if (!cache.has(resolver)) return;
+            cache.delete(resolver);
+        }
     };
 
-    this.isCached = token => cache.has(token);
+    this.isCached = resolver => cache.has(resolver);
 
-    function markAsCached($transitions, token) {
-        if (cache.has(token)) return;
-
-        const onBeforeHook = $transitions.onBefore(
-            {
-                to: state => !state.path
-                    .reduce((acc, el) => [...acc, ...el.resolvables], [])
-                    .map(r => r.token)
-                    .includes(token),
-            },
-            () => {
-                this.flush(token);
-            },
-        );
-
-        cache.set(token, onBeforeHook);
+    function markAsCached(resolver) {
+        if (cache.has(resolver)) return;
+        cache.add(resolver);
     }
 
-    this.$get = ['$transitions', ($transitions) => ({
-        markAsCached: markAsCached.bind(this, $transitions),
+    this.$get = () => ({
+        markAsCached: markAsCached,
         flush: this.flush,
         isCached: this.isCached,
-    })];
+    });
 });
 
 module.config(['$provide', ($provide) => {
@@ -57,7 +50,30 @@ module.config(['$provide', ($provide) => {
 module.config(['$transitionsProvider', '$resolveCacheProvider', ($transitionsProvider, $resolveCacheProvider) => {
     'ngInject';
 
+    function flushResolve(resolve) {
+        if (isArray(resolve)) {
+            resolve.forEach($resolveCacheProvider.flush);
+        } else {
+            forEach(resolve, (v, token) => $resolveCacheProvider.flush(token));
+        }
+    }
+
     $transitionsProvider.onBefore({}, (trans) => {
+        const entering = trans.entering();
+        trans.exiting().filter(state => entering.indexOf(state) === -1).forEach((state) => {
+            if (state.resolve) {
+                flushResolve(state.resolve);
+            }
+
+            if (state.views) {
+                values(state.views).forEach((view : any) => {
+                    if (view && view.resolve) {
+                        flushResolve(view.resolve);
+                    }
+                });
+            }
+        });
+
         const { custom: { flush: tokens } } = trans.options();
         if (tokens) {
             tokens.forEach(token => $resolveCacheProvider.flush(token));

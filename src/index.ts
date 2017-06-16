@@ -1,4 +1,4 @@
-import { Transition, ResolvableLiteral, UIInjector, ResolvePolicy, equals, extend } from '@uirouter/core';
+import { Transition, ResolvableLiteral, UIInjector, ResolvePolicy, equals, extend, isPromise, any } from '@uirouter/core';
 
 export type DsMethod = 'many' | 'one';
 export type ResolveFn = (...any) => Promise<Object>;
@@ -18,9 +18,9 @@ export class Getter {
 }
 
 interface IResolveCache {
-    isCached(token: String): boolean;
-    markAsCached(token: String): void;
-    flush(token: String): void;
+    isCached(literal: ResolvableLiteral): boolean;
+    markAsCached(literal: ResolvableLiteral): void;
+    flush(literal: ResolvableLiteral): void;
 }
 
 export interface IDatasource<TRes> {
@@ -48,7 +48,7 @@ export interface ICreateResolver extends ResolvableLiteral {
 }
 
 function memoizeResolveFn(
-    token: String,
+    literal: ResolvableLiteral,
     argsGetter: (...any) => Object,
     cacheDepsGetter: Getter,
     resolveFn: ResolveFn,
@@ -56,22 +56,30 @@ function memoizeResolveFn(
     let lastArgs = null;
     let lastRes = null;
 
-    return async ($transition$ : Transition, ...deps : Array<any>) => {
-        const injector = $transition$.injector();
+    return ($transition$ : Transition, ...deps : Array<any>) => {
+        function continuation(getterArgs : any[]) {
+            const cacheDeps = cacheDepsGetter.fn(...getterArgs);
+            const args = extend({}, cacheDeps, argsGetter(...deps));
 
-        const $resolveCache = injector.get<IResolveCache>('$resolveCache');
-        const cacheDeps = cacheDepsGetter.fn(...await Promise.all(cacheDepsGetter.deps.map(d => injector.getAsync(d))));
-        const args = extend({}, cacheDeps, argsGetter(...deps));
+            if (equals(args, lastArgs) && $resolveCache.isCached(literal)) {
+                return lastRes;
+            }
 
-        if (equals(args, lastArgs) && $resolveCache.isCached(token)) {
+            lastArgs = args;
+            lastRes = resolveFn($transition$, ...deps);
+            $resolveCache.markAsCached(literal);
+
             return lastRes;
         }
 
-        lastArgs = args;
-        lastRes = resolveFn($transition$, ...deps);
-        $resolveCache.markAsCached(token);
+        const injector = $transition$.injector();
 
-        return lastRes;
+        const $resolveCache = injector.get<IResolveCache>('$resolveCache');
+        try {
+            return continuation(cacheDepsGetter.deps.map(d => injector.get(d)));
+        } catch (ex) {
+            return Promise.all(cacheDepsGetter.deps.map(d => injector.getAsync(d))).then(continuation);
+        }
     };
 }
 
@@ -86,6 +94,14 @@ const defaultParams : IResolverParams = {
 };
 
 type GetDatasource<TEntity> = (UIInjector?) => String | IDatasource<TEntity>;
+
+function getOrResolve(injector, token) {
+    try {
+        return injector.get(token);
+    } catch (ex) {
+        return injector.getAsync(token);
+    }
+}
 
 function makeInjectable(target, key, descriptor = Object.getOwnPropertyDescriptor(target, key)) {
     const originalMethod = descriptor.value;
@@ -145,7 +161,6 @@ export default class Resolver<TEntity> implements ResolvableLiteral {
         const skipIfTests = this.params.skipIfTests;
         const onError = this.params.onError;
         const postprocessors = this.params.postprocessors;
-        const token = this.params.token;
         const argsGetter = this.params.argsGetter.fn;
         const cacheDepsGetter = this.params.cacheDepsGetter;
         const datasourceMethod = this.params.datasourceMethod;
@@ -171,16 +186,21 @@ export default class Resolver<TEntity> implements ResolvableLiteral {
         };
 
         if (this.params.memoize) {
-            resolveFn = memoizeResolveFn(token, argsGetter, cacheDepsGetter, resolveFn);
+            resolveFn = memoizeResolveFn(this, argsGetter, cacheDepsGetter, resolveFn);
         }
 
         if (skipIfTests.length) {
             resolveFn = skipIfTests.reduce(
                 (res, { deps, fn: testFn }) => ($transition$, ...args) => {
                     const injector = $transition$.injector();
-                    return Promise.all(deps.map(depName => injector.getAsync(depName)))
-                        .then(values => testFn(...values))
-                        .then(skip => (skip ? undefined : res($transition$, ...args)));
+                    const resolvedDeps = deps.map(depName => getOrResolve(injector, depName));
+                    if (any(isPromise)(resolvedDeps)) {
+                        return Promise.all(resolvedDeps)
+                            .then(values => testFn(...values))
+                            .then(skip => (skip ? undefined : res($transition$, ...args)));
+                    } else {
+                        return testFn(...resolvedDeps) ? undefined : res($transition$, ...args);
+                    }
                 },
                 resolveFn,
             );
