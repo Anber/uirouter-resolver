@@ -75,10 +75,11 @@ function memoizeResolveFn(
         const injector = $transition$.injector();
 
         const $resolveCache = injector.get<IResolveCache>('$resolveCache');
+        const $q = injector.get<PromiseConstructor>('$q');
         try {
             return continuation(cacheDepsGetter.deps.map(d => injector.get(d)));
         } catch (ex) {
-            return Promise.all(cacheDepsGetter.deps.map(d => injector.getAsync(d))).then(continuation);
+            return $q.all(cacheDepsGetter.deps.map(d => injector.getAsync(d))).then(continuation);
         }
     };
 }
@@ -193,9 +194,10 @@ export default class Resolver<TEntity> implements ResolvableLiteral {
             resolveFn = skipIfTests.reduce(
                 (res, { deps, fn: testFn }) => ($transition$, ...args) => {
                     const injector = $transition$.injector();
+                    const $q = injector.get('$q');
                     const resolvedDeps = deps.map(depName => getOrResolve(injector, depName));
                     if (any(isPromise)(resolvedDeps)) {
-                        return Promise.all(resolvedDeps)
+                        return $q.all(resolvedDeps)
                             .then(values => testFn(...values))
                             .then(skip => (skip ? undefined : res($transition$, ...args)));
                     } else {

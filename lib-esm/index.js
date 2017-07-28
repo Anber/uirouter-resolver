@@ -38,11 +38,12 @@ function memoizeResolveFn(literal, argsGetter, cacheDepsGetter, resolveFn) {
         }
         var injector = $transition$.injector();
         var $resolveCache = injector.get('$resolveCache');
+        var $q = injector.get('$q');
         try {
             return continuation(cacheDepsGetter.deps.map(function (d) { return injector.get(d); }));
         }
         catch (ex) {
-            return Promise.all(cacheDepsGetter.deps.map(function (d) { return injector.getAsync(d); })).then(continuation);
+            return $q.all(cacheDepsGetter.deps.map(function (d) { return injector.getAsync(d); })).then(continuation);
         }
     };
 }
@@ -147,9 +148,10 @@ var Resolver = (function () {
                             args[_i - 1] = arguments[_i];
                         }
                         var injector = $transition$.injector();
+                        var $q = injector.get('$q');
                         var resolvedDeps = deps.map(function (depName) { return getOrResolve(injector, depName); });
                         if (any(isPromise)(resolvedDeps)) {
-                            return Promise.all(resolvedDeps)
+                            return $q.all(resolvedDeps)
                                 .then(function (values) { return testFn.apply(void 0, values); })
                                 .then(function (skip) { return (skip ? undefined : res.apply(void 0, [$transition$].concat(args))); });
                         }
