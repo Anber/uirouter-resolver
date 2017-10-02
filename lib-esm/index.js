@@ -52,8 +52,7 @@ var defaultParams = {
     argsGetter: Getter.empty,
     cacheDepsGetter: Getter.empty,
     datasourceMethod: 'many',
-    postprocessors: [],
-    onError: [],
+    handlers: [],
     skipIfTests: [],
 };
 function getOrResolve(injector, token) {
@@ -116,8 +115,7 @@ var Resolver = (function () {
                 return resolveFn;
             }
             var skipIfTests = this.params.skipIfTests;
-            var onError = this.params.onError;
-            var postprocessors = this.params.postprocessors;
+            var handlers = this.params.handlers;
             var argsGetter = this.params.argsGetter.fn;
             var cacheDepsGetter = this.params.cacheDepsGetter;
             var datasourceMethod = this.params.datasourceMethod;
@@ -130,11 +128,10 @@ var Resolver = (function () {
                 var datasource = _this.getDatasource(injector);
                 var args = argsGetter.apply(void 0, deps);
                 var result = datasource[datasourceMethod](args);
-                var promise = postprocessors.reduce(function (res, fn) { return res.then(function (data) { return fn(data); }); }, result);
-                if (onError.length) {
-                    promise = promise.catch(function (error) { return onError.reduce(function (res, fn) { return fn(res); }, error); });
-                }
-                return promise;
+                return handlers.reduce(function (res, _a) {
+                    var onResolve = _a[0], onError = _a[1];
+                    return res.then(onResolve, onError);
+                }, result);
             };
             if (this.params.memoize) {
                 resolveFn = memoizeResolveFn(this, argsGetter, cacheDepsGetter, resolveFn);
@@ -233,16 +230,16 @@ var Resolver = (function () {
      * @returns {Resolver} new instance of {Resolver}
      */
     Resolver.prototype.then = function (callback) {
-        var callbacks = this.params.postprocessors;
-        return this.clone({ postprocessors: callbacks.concat([callback]) });
+        var callbacks = this.params.handlers;
+        return this.clone({ handlers: callbacks.concat([[callback, undefined]]) });
     };
     /**
      * Add error catcher
      * @returns {Resolver} new instance of {Resolver}
      */
     Resolver.prototype.catch = function (callback) {
-        var callbacks = this.params.onError;
-        return this.clone({ onError: callbacks.concat([callback]) });
+        var callbacks = this.params.handlers;
+        return this.clone({ handlers: callbacks.concat([[undefined, callback]]) });
     };
     /**
      * Skip resolve if {testFn} returns true

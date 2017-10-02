@@ -112,12 +112,26 @@ describe('Resolver', () => {
         model.many = () => Promise.reject(error);
 
         const catchFn1 = jest.fn().mockReturnValue('value 1');
-        const catchFn2 = jest.fn().mockReturnValue('value 2');
-        instance = instance.catch(catchFn1).catch(catchFn2);
+        const thenFn1 = jest.fn().mockReturnValue('value 2');
+        instance = instance.catch(catchFn1).then(thenFn1);
         const resolved = await instance.resolveFn($transition$);
         expect(catchFn1).toHaveBeenCalledWith(error);
-        expect(catchFn2).toHaveBeenCalledWith('value 1'); // FIXME: it's wrong behaviour
+        expect(thenFn1).toHaveBeenCalledWith('value 1');
         expect(resolved).toEqual('value 2');
+    });
+
+    test('should catch rethrown error', async () => {
+        const error1 = new Error('error 1');
+        const error2 = new Error('error 2');
+        model.many = () => Promise.reject(error1);
+
+        const catchFn1 = jest.fn(() => { throw error2});
+        const catchFn2 = jest.fn().mockReturnValue('value');
+        instance = instance.catch(catchFn1).catch(catchFn2);
+        const resolved = await instance.resolveFn($transition$);
+        expect(catchFn1).toHaveBeenCalledWith(error1);
+        expect(catchFn2).toHaveBeenCalledWith(error2);
+        expect(resolved).toEqual('value');
     });
 
     test('should skip resolve', async () => {

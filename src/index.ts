@@ -2,8 +2,8 @@ import { Transition, ResolvableLiteral, UIInjector, ResolvePolicy, equals, exten
 
 export type DsMethod = 'many' | 'one';
 export type ResolveFn = (...any) => Promise<Object>;
-export type PostProcessorFn = (any) => any;
-export type OnErrorFn = (any) => any;
+export type OnResolveFn = (any) => any;
+export type OnRejectFn = (any) => any;
 
 export class Getter {
     deps: Array<string>;
@@ -34,8 +34,7 @@ export interface IResolverParams {
     argsGetter?: Getter;
     cacheDepsGetter?: Getter;
     datasourceMethod?: DsMethod;
-    postprocessors?: Array<PostProcessorFn>;
-    onError?: Array<OnErrorFn>;
+    handlers?: Array<[OnResolveFn, OnRejectFn]>;
     skipIfTests?: Array<Getter>;
 
     token?: String;
@@ -89,8 +88,7 @@ const defaultParams : IResolverParams = {
     argsGetter: Getter.empty,
     cacheDepsGetter: Getter.empty,
     datasourceMethod: 'many',
-    postprocessors: [],
-    onError: [],
+    handlers: [],
     skipIfTests: [],
 };
 
@@ -160,8 +158,7 @@ export default class Resolver<TEntity> implements ResolvableLiteral {
         }
 
         const skipIfTests = this.params.skipIfTests;
-        const onError = this.params.onError;
-        const postprocessors = this.params.postprocessors;
+        const handlers = this.params.handlers;
         const argsGetter = this.params.argsGetter.fn;
         const cacheDepsGetter = this.params.cacheDepsGetter;
         const datasourceMethod = this.params.datasourceMethod;
@@ -171,19 +168,7 @@ export default class Resolver<TEntity> implements ResolvableLiteral {
             const datasource = this.getDatasource(injector) as IDatasource<TEntity>;
             const args = argsGetter(...deps);
             const result = datasource[datasourceMethod](args) as Promise<any>;
-            let promise = postprocessors.reduce(
-                (res, fn) => res.then(data => fn(data)),
-                result,
-            );
-
-            if (onError.length) {
-                promise = promise.catch(error => onError.reduce(
-                    (res, fn) => fn(res),
-                    error,
-                ));
-            }
-
-            return promise;
+            return handlers.reduce((res, [onResolve, onError]) => res.then(onResolve, onError), result);
         };
 
         if (this.params.memoize) {
@@ -268,12 +253,12 @@ export default class Resolver<TEntity> implements ResolvableLiteral {
     }
 
     /**
-     * Add response postprocessor
+     * Add response handlers
      * @returns {Resolver} new instance of {Resolver}
      */
-    then(callback) : Resolver<TEntity> {
-        const callbacks = this.params.postprocessors;
-        return this.clone({ postprocessors: [...callbacks, callback] });
+    then(onResolve, onReject = undefined) : Resolver<TEntity> {
+        const callbacks = this.params.handlers;
+        return this.clone({ handlers: [...callbacks, [onResolve, onReject]] });
     }
 
     /**
@@ -281,8 +266,7 @@ export default class Resolver<TEntity> implements ResolvableLiteral {
      * @returns {Resolver} new instance of {Resolver}
      */
     catch(callback) : Resolver<TEntity> {
-        const callbacks = this.params.onError;
-        return this.clone({ onError: [...callbacks, callback] });
+        return this.then(undefined, callback);
     }
 
     /**

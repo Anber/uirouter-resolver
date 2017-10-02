@@ -1,8 +1,8 @@
 import { ResolvableLiteral, ResolvePolicy } from '@uirouter/core';
 export declare type DsMethod = 'many' | 'one';
 export declare type ResolveFn = (...any) => Promise<Object>;
-export declare type PostProcessorFn = (any) => any;
-export declare type OnErrorFn = (any) => any;
+export declare type OnResolveFn = (any) => any;
+export declare type OnRejectFn = (any) => any;
 export declare class Getter {
     deps: Array<string>;
     fn: (...any) => Object;
@@ -19,8 +19,7 @@ export interface IResolverParams {
     argsGetter?: Getter;
     cacheDepsGetter?: Getter;
     datasourceMethod?: DsMethod;
-    postprocessors?: Array<PostProcessorFn>;
-    onError?: Array<OnErrorFn>;
+    handlers?: Array<[OnResolveFn, OnRejectFn]>;
     skipIfTests?: Array<Getter>;
     token?: String;
     data?: any;
