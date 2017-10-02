@@ -1,6 +1,6 @@
 {
   "name": "uirouter-resolver",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Helper for UI-Router's resolve",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -54,8 +54,7 @@
     "ts-jest": "^20.0.4",
     "typescript": "^2.3.3"
   },
-  "dependencies": {
-  },
+  "dependencies": {},
   "peerDependencies": {
     "@uirouter/angularjs": "^1.0.0",
     "@uirouter/core": "^5.0.0",
