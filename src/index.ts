@@ -4,6 +4,8 @@ export type DsMethod = 'many' | 'one';
 export type ResolveFn = (...any) => Promise<Object>;
 export type OnResolveFn = (any) => any;
 export type OnRejectFn = (any) => any;
+export type DatasourceCreator<TEntity> = (UIInjector) => IDatasource<TEntity>;
+export type Datasource<TEntity> = String | IDatasource<TEntity> | DatasourceCreator<TEntity>;
 
 export class Getter {
     deps: Array<string>;
@@ -92,7 +94,7 @@ const defaultParams : IResolverParams = {
     skipIfTests: [],
 };
 
-type GetDatasource<TEntity> = (UIInjector?) => String | IDatasource<TEntity>;
+type GetDatasource<TEntity> = (UIInjector?) => Datasource<TEntity>;
 
 function getOrResolve(injector, token) {
     try {
@@ -127,11 +129,13 @@ export default class Resolver<TEntity> implements ResolvableLiteral {
      * @param {string|IDatasource} datasource — name of injectable datasource or IDatasource instance
      * @param {IResolverParams} resolvableLiteral used to describe a {Resolvable}
      */
-    constructor(datasource : String | IDatasource<TEntity>, resolvableLiteral = {}) {
+    constructor(datasource : Datasource<TEntity>, resolvableLiteral = {}) {
         if (typeof datasource === 'string') {
             this.getDatasource = (injector : UIInjector) => (
                 injector ? injector.get<IDatasource<TEntity>>(datasource) : datasource
             );
+        } else if (typeof datasource === 'function') {
+            this.getDatasource = (injector : UIInjector) => (injector ? datasource(injector) : datasource);
         } else {
             this.getDatasource = () => datasource;
         }

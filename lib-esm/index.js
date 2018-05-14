@@ -87,6 +87,9 @@ var Resolver = (function () {
         if (typeof datasource === 'string') {
             this.getDatasource = function (injector) { return (injector ? injector.get(datasource) : datasource); };
         }
+        else if (typeof datasource === 'function') {
+            this.getDatasource = function (injector) { return (injector ? datasource(injector) : datasource); };
+        }
         else {
             this.getDatasource = function () { return datasource; };
         }
@@ -226,20 +229,20 @@ var Resolver = (function () {
         return this.clone({ policy: { async: async, when: 'EAGER' } });
     };
     /**
-     * Add response postprocessor
+     * Add response handlers
      * @returns {Resolver} new instance of {Resolver}
      */
-    Resolver.prototype.then = function (callback) {
+    Resolver.prototype.then = function (onResolve, onReject) {
+        if (onReject === void 0) { onReject = undefined; }
         var callbacks = this.params.handlers;
-        return this.clone({ handlers: callbacks.concat([[callback, undefined]]) });
+        return this.clone({ handlers: callbacks.concat([[onResolve, onReject]]) });
     };
     /**
      * Add error catcher
      * @returns {Resolver} new instance of {Resolver}
      */
     Resolver.prototype.catch = function (callback) {
-        var callbacks = this.params.handlers;
-        return this.clone({ handlers: callbacks.concat([[undefined, callback]]) });
+        return this.then(undefined, callback);
     };
     /**
      * Skip resolve if {testFn} returns true

@@ -3,6 +3,8 @@ export declare type DsMethod = 'many' | 'one';
 export declare type ResolveFn = (...any) => Promise<Object>;
 export declare type OnResolveFn = (any) => any;
 export declare type OnRejectFn = (any) => any;
+export declare type DatasourceCreator<TEntity> = (UIInjector) => IDatasource<TEntity>;
+export declare type Datasource<TEntity> = String | IDatasource<TEntity> | DatasourceCreator<TEntity>;
 export declare class Getter {
     deps: Array<string>;
     fn: (...any) => Object;
@@ -37,7 +39,7 @@ export default class Resolver<TEntity> implements ResolvableLiteral {
      * @param {string|IDatasource} datasource — name of injectable datasource or IDatasource instance
      * @param {IResolverParams} resolvableLiteral used to describe a {Resolvable}
      */
-    constructor(datasource: String | IDatasource<TEntity>, resolvableLiteral?: {});
+    constructor(datasource: Datasource<TEntity>, resolvableLiteral?: {});
     /**
      * The Dependency Injection token that will be used to inject/access the resolvable.
      * @returns {string}
@@ -81,10 +83,10 @@ export default class Resolver<TEntity> implements ResolvableLiteral {
      */
     eager(): Resolver<TEntity>;
     /**
-     * Add response postprocessor
+     * Add response handlers
      * @returns {Resolver} new instance of {Resolver}
      */
-    then(callback: any): Resolver<TEntity>;
+    then(onResolve: any, onReject?: any): Resolver<TEntity>;
     /**
      * Add error catcher
      * @returns {Resolver} new instance of {Resolver}
