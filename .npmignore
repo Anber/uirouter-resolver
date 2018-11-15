@@ -2,5 +2,7 @@ node_modules/
 *.log
 coverage/
 .idea
-lib/
-lib-esm/
+src/
+tests/
+tsconfig.json
+yarn.lock

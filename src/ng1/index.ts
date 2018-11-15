@@ -1,4 +1,4 @@
-import angular from 'angular';
+import * as angular from 'angular';
 import uiRouter, { values, isArray, forEach } from '@uirouter/angularjs';
 
 const MODULE_NAME = 'uiRouterResolver';

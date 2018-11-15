@@ -1,6 +1,6 @@
 {
   "name": "uirouter-resolver",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Helper for UI-Router's resolve",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
